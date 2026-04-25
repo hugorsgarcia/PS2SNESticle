@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Install build dependencies
-        run: apk add --no-cache git make
+        run: apk add --no-cache git make gmp mpfr4 mpc1
 
       - name: Checkout code
         uses: actions/checkout@v4
