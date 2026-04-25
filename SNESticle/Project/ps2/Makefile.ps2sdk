@@ -358,7 +358,7 @@ $(EE_OBJS_DIR)%.o: %.s
 
 $(BUILD_DIR)/memcard_icon.inc: ../../Data/icon/memcard_icon.icn
 	@mkdir -p $(BUILD_DIR)
-	$(PS2SDK)/../bin/bin2c $< $@ memcard_icon
+	$(BIN2C) $< $@ memcard_icon
 
 #
 # Additional targets
