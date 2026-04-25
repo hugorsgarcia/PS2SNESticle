@@ -1,0 +1,381 @@
+# SNESticle PS2SDK Makefile
+# Ported from Sony PS2 SDK to ps2dev/ps2sdk homebrew toolchain
+#
+
+# PS2SDK environment - set these if not already in your shell
+PS2DEV  ?= /usr/local/ps2dev
+PS2SDK  ?= $(PS2DEV)/ps2sdk
+DVP_AS  ?= $(PS2DEV)/dvp/bin/dvp-as
+
+#
+# Target
+#
+
+EE_BIN = SNESticle.elf
+
+#
+# Build configuration
+#
+
+ifdef build
+BUILD := $(build)
+endif
+ifndef BUILD
+BUILD := debug
+endif
+
+BUILD_DIR = $(BUILD)_ps2sdk
+
+#
+# Directory layout
+#
+
+GEPDIR      = ../../../Gep
+SNESSOURCE  = ../../Source
+NESSOURCE   = ../../../NESticle/Source
+MODULE_BASE = ../../Modules
+
+#
+# Source search paths (VPATH)
+#
+
+VPATH  =
+VPATH += $(GEPDIR)/Source/ps2
+VPATH += $(GEPDIR)/Source/common/zlib
+VPATH += $(GEPDIR)/Source/common/unzip
+VPATH += $(GEPDIR)/Source/common
+VPATH += $(GEPDIR)/Source/common/console
+VPATH += $(SNESSOURCE)/ps2
+VPATH += $(SNESSOURCE)/common
+VPATH += $(NESSOURCE)/ps2
+VPATH += $(NESSOURCE)/common/ncpu
+VPATH += $(NESSOURCE)/common
+VPATH += $(MODULE_BASE)/mcsave/ee
+
+VPATH += $(MODULE_BASE)/netplay/Source/ps2/common
+VPATH += $(MODULE_BASE)/netplay/Source/ps2/ee
+VPATH += $(MODULE_BASE)/libcdvd/ee
+VPATH += ../../Data/icon
+
+#
+# Include paths
+# NOTE: Project includes MUST come before PS2SDK includes to avoid
+# name collisions (e.g., our font.h vs PS2SDK's font.h).
+# Makefile.eeglobal_cpp prepends PS2SDK paths, so we use -iquote
+# for project includes to give them priority for quoted #include "..."
+#
+
+EE_INCS += -iquote $(GEPDIR)/Include/common
+EE_INCS += -iquote $(GEPDIR)/Include/ps2
+EE_INCS += -iquote $(GEPDIR)/Source/common/zlib
+EE_INCS += -iquote $(GEPDIR)/Source/common/unzip
+EE_INCS += -iquote $(SNESSOURCE)/ps2
+EE_INCS += -iquote $(SNESSOURCE)/common
+EE_INCS += -iquote $(NESSOURCE)/ps2
+EE_INCS += -iquote $(NESSOURCE)/ps2/n6502
+EE_INCS += -iquote $(NESSOURCE)/common/ncpu
+EE_INCS += -iquote $(NESSOURCE)/common
+EE_INCS += -iquote $(MODULE_BASE)/mcsave/ee
+
+EE_INCS += -iquote $(MODULE_BASE)/netplay/Source/common
+EE_INCS += -iquote $(MODULE_BASE)/netplay/Source/ps2/common
+EE_INCS += -iquote $(MODULE_BASE)/netplay/Source/ps2/ee
+EE_INCS += -iquote $(MODULE_BASE)/libcdvd/common
+EE_INCS += -iquote $(MODULE_BASE)/libcdvd/ee
+EE_INCS += -iquote $(BUILD_DIR)
+
+#
+# Build defines
+#
+
+ifeq ($(BUILD), debug)
+EE_DEFINES = -DCODE_PROFILE=0 -DCODE_DEBUG=1 -DCODE_RELEASE=0
+else ifeq ($(BUILD), final)
+EE_DEFINES = -DCODE_PROFILE=0 -DCODE_DEBUG=0 -DCODE_RELEASE=0
+else ifeq ($(BUILD), release)
+EE_DEFINES = -DCODE_PROFILE=0 -DCODE_DEBUG=0 -DCODE_RELEASE=1
+else ifeq ($(BUILD), profile)
+EE_DEFINES = -DCODE_PROFILE=1 -DCODE_DEBUG=0 -DCODE_RELEASE=0
+endif
+
+EE_DEFINES += -DPS2_EE -D_EE -DLSB_FIRST -DALIGN_DWORD -DCODE_PLATFORM=3
+
+#
+# Compiler flags
+#
+# Removed from original: -fshort-double (unsupported GCC 15)
+#                         -mlong64 (incompatible with n32 ABI)
+#                         -mno-abicalls (implied by -G0)
+#                         -ffreestanding -fno-builtin (conflicts with newlib)
+#                         -nostartfiles (handled by PS2SDK template)
+#
+
+EE_OPTFLAGS  = -O2
+EE_WARNFLAGS = -Wall -Wno-error
+
+# Project-specific C flags (appended to PS2SDK defaults)
+EE_CFLAGS  += $(EE_DEFINES) -pipe -fomit-frame-pointer -fstrict-aliasing -fno-common -mhard-float
+EE_CXXFLAGS += $(EE_DEFINES) -pipe -fomit-frame-pointer -fstrict-aliasing -fno-common -mhard-float -fno-exceptions -fno-rtti
+
+# Assembler flags for .S files (preprocessed assembly)
+EE_ASFLAGS += -march=r5900 -mabi=n32 -EL
+
+#
+# Libraries
+#
+# Replaced Sony SDK libs with PS2SDK equivalents:
+#   -lpad     -> PS2SDK libpad
+#   -lmc      -> PS2SDK libmc
+#    -> replaces custom SJPCM module
+#   -lcdvd    -> replaces custom libcdvd module
+#   -lpatches -> SBV patches for module loading
+#
+
+EE_LIBS = -lpatches -lpad -lmc -laudsrv -lcdvd -lnetman -lps2ip -ldebug -lstdc++ -lc -lm
+
+#
+# Linker flags
+#
+
+EE_LDFLAGS += -Wl,-Map,$(BUILD_DIR)/SNESticle.map
+
+#
+# Object files
+#
+# NOTE: crt0.o REMOVED - PS2SDK provides its own startup
+#
+
+EE_OBJS_DIR = obj/
+EE_OBJS =
+
+# Gep engine - platform
+EE_OBJS += main.o
+EE_OBJS += excepHandler.o
+EE_OBJS += exceptions.o
+EE_OBJS += file.o
+EE_OBJS += surface.o
+EE_OBJS += rendersurface.o
+EE_OBJS += pixelformat.o
+EE_OBJS += memspace.o
+EE_OBJS += inputdevice.o
+EE_OBJS += console.o
+EE_OBJS += bmpfile.o
+EE_OBJS += mixbuffer.o
+EE_OBJS += wavfile.o
+EE_OBJS += dataio.o
+EE_OBJS += pathext.o
+# EE_OBJS += array.o  # source file missing from repository
+
+# zlib
+EE_OBJS += adler32.o
+EE_OBJS += compress.o
+EE_OBJS += crc32.o
+EE_OBJS += deflate.o
+EE_OBJS += gzio.o
+EE_OBJS += infblock.o
+EE_OBJS += infcodes.o
+EE_OBJS += inffast.o
+EE_OBJS += inflate.o
+EE_OBJS += inftrees.o
+EE_OBJS += infutil.o
+EE_OBJS += trees.o
+EE_OBJS += uncompr.o
+EE_OBJS += zutil.o
+
+# unzip
+EE_OBJS += explode.o
+EE_OBJS += unreduce.o
+EE_OBJS += unshrink.o
+EE_OBJS += unzip.o
+
+# profiling
+EE_OBJS += prof.o
+EE_OBJS += proflog.o
+EE_OBJS += profctr.o
+
+# PS2 hardware / graphics
+EE_OBJS += poly.o
+EE_OBJS += cd.o
+EE_OBJS += gs.o
+EE_OBJS += hw.o
+EE_OBJS += gpfifo.o
+EE_OBJS += libxpad.o
+EE_OBJS += libxmtap.o
+
+# cdvd_rpc.o removed - using PS2SDK cdfs.irx instead of custom CDVD.IRX
+EE_OBJS += ps2dma.o
+EE_OBJS += mcsave_ee.o
+EE_OBJS += audsrvbuffer.o
+EE_OBJS += gslist.o
+EE_OBJS += gpprim.o
+EE_OBJS += vram.o
+EE_OBJS += titleman.o
+
+# Network
+EE_OBJS += netplay_ee.o
+
+# UI / font / texture
+EE_OBJS += font.o
+EE_OBJS += texture.o
+EE_OBJS += font_04b16b.o
+
+# SNESticle application
+EE_OBJS += input.o
+EE_OBJS += version.o
+EE_OBJS += mainloop.o
+EE_OBJS += uiBrowser.o
+EE_OBJS += uiNetwork.o
+EE_OBJS += uiMenu.o
+EE_OBJS += uiLog.o
+EE_OBJS += memcard.o
+
+# SNES emulation core
+EE_OBJS += emurom.o
+EE_OBJS += emusys.o
+EE_OBJS += emumovie.o
+EE_OBJS += snstate.o
+EE_OBJS += sncpu_c.o
+EE_OBJS += snrom.o
+EE_OBJS += sndisasm.o
+EE_OBJS += snspcdisasm.o
+EE_OBJS += sncpu.o
+EE_OBJS += snio.o
+EE_OBJS += sndma.o
+EE_OBJS += snppu.o
+EE_OBJS += snes.o
+EE_OBJS += snesreg.o
+EE_OBJS += sn65816.o
+EE_OBJS += snmemmap.o
+EE_OBJS += snppucolor.o
+EE_OBJS += snppublend_gs.o
+EE_OBJS += snppurender.o
+EE_OBJS += snppurender8.o
+EE_OBJS += snppubg.o
+EE_OBJS += snppuobj.o
+EE_OBJS += snspctimer.o
+EE_OBJS += snspcio.o
+EE_OBJS += snspc_c.o
+EE_OBJS += snspcdsp.o
+EE_OBJS += snspcmix.o
+# IMPORTANT: snspcmix.o MUST be compiled with -O1 (not -O2).
+# GCC 15.2's -O2 optimizations break the 128-bit MIPS inline assembly
+# in _MixChannel/_MixChannelEcho/_MixEcho, causing audsrv_play_audio()
+# to receive corrupted data and block indefinitely. See PORTING.md.
+# Custom rule is defined AFTER PS2SDK includes (below).
+EE_OBJS += snspcbrr.o
+EE_OBJS += snspc.o
+EE_OBJS += snmask128.o
+EE_OBJS += snspcrom.o
+
+# NES emulation core (stubbed - NESticle source not available)
+EE_OBJS += nespal.o
+
+#
+# Embedded IOP modules (single-ELF homebrew pattern)
+# PS2SDK IRX modules are converted to C arrays via bin2c
+# and linked directly into the ELF. Loaded at runtime with SifExecModuleBuffer.
+#
+
+PS2SDK_IRX_DIR = $(PS2SDK)/iop/irx
+BIN2C = $(PS2SDK)/bin/bin2c
+
+# PS2SDK filesystem / USB modules
+EE_OBJS += cdvdman_irx.o
+EE_OBJS += cdvdfsv_irx.o
+EE_OBJS += cdfs_irx.o
+EE_OBJS += usbd_irx.o
+EE_OBJS += bdm_irx.o
+EE_OBJS += bdmfs_fatfs_irx.o
+EE_OBJS += usbmass_bd_irx.o
+
+# Custom IOP modules (pre-compiled)
+EE_OBJS += audsrv_irx.o
+EE_OBJS += ps2dev9_irx.o
+EE_OBJS += netman_irx.o
+EE_OBJS += smap_irx.o
+EE_OBJS += ps2ip_irx.o
+
+# Add directory prefix to all objects
+EE_OBJS_DIR = obj/
+EE_OBJS := $(EE_OBJS:%=$(EE_OBJS_DIR)%)
+
+#
+# Data objects (icon)
+#
+
+DATAOBJS = $(BUILD_DIR)/memcard_icon.inc
+
+#
+# Include PS2SDK build system
+#
+
+include $(PS2SDK)/samples/Makefile.pref
+include $(PS2SDK)/samples/Makefile.eeglobal_cpp
+
+#
+# Custom rules for DVP assembly (VU microcode)
+# PS2SDK's Makefile.eeglobal does not include a rule for .dsm files
+#
+
+$(EE_OBJS_DIR)%.o: %.dsm
+	@mkdir -p $(@D)
+	@echo DVP Assembling $<...
+	$(DVP_AS) $(EE_INCS) $< -o $@
+
+#
+# Per-file optimization override: snspcmix.o at -O1
+# (must be after PS2SDK includes for EE_CXX to be defined)
+#
+$(EE_OBJS_DIR)snspcmix.o: ../../Source/common/snspcmix.cpp
+	@mkdir -p $(@D)
+	$(EE_CXX) $(EE_CXXFLAGS) $(EE_INCS) -O1 -c $< -o $@
+
+#
+# Object directory rules to prevent polluting the source tree
+#
+$(EE_OBJS_DIR)%.o: %.c
+	@mkdir -p $(@D)
+	$(EE_CC) $(EE_CFLAGS) $(EE_INCS) -c $< -o $@
+
+$(EE_OBJS_DIR)%.o: %.cpp
+	@mkdir -p $(@D)
+	$(EE_CXX) $(EE_CXXFLAGS) $(EE_INCS) -c $< -o $@
+
+$(EE_OBJS_DIR)%.o: %.S
+	@mkdir -p $(@D)
+	$(EE_CC) $(EE_CFLAGS) $(EE_INCS) -c $< -o $@
+
+$(EE_OBJS_DIR)%.o: %.s
+	@mkdir -p $(@D)
+	$(EE_AS) $(EE_ASFLAGS) $< -o $@
+
+#
+# Icon data conversion
+#
+
+$(BUILD_DIR)/memcard_icon.inc: ../../Data/icon/memcard_icon.icn
+	@mkdir -p $(BUILD_DIR)
+	$(PS2SDK)/../bin/bin2c $< $@ memcard_icon
+
+#
+# Additional targets
+#
+
+.PHONY: clean_all
+
+clean_all: clean
+	rm -rf $(BUILD_DIR)
+	rm -rf $(EE_OBJS_DIR)
+	rm -f *_irx.c
+
+#
+# IRX embedding rules (bin2c: .irx -> .c -> .o)
+#
+
+$(EE_OBJS_DIR)%_irx.c: $(PS2SDK_IRX_DIR)/%.irx
+	@mkdir -p $(@D)
+	$(BIN2C) $< $@ $*_irx
+
+$(EE_OBJS_DIR)%_irx.o: $(EE_OBJS_DIR)%_irx.c
+	@mkdir -p $(@D)
+	$(EE_CC) $(EE_CFLAGS) $(EE_INCS) -c $< -o $@

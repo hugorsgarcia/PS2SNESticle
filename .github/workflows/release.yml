@@ -1,0 +1,39 @@
+name: Build and Release SNESticle
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers workflow on tags like v1.0, v2.1.3, etc.
+
+jobs:
+  build-and-release:
+    name: Build PS2 ELF and Create Release
+    runs-on: ubuntu-latest
+    container:
+      image: ps2dev/ps2dev:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add repository to Git safe directories
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Build SNESticle.elf
+        run: |
+          cd SNESticle/Project/ps2
+          make -f Makefile.ps2sdk clean
+          make -f Makefile.ps2sdk
+
+      - name: Create Release and Upload Artifact
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SNESticle/Project/ps2/SNESticle.elf
+          name: SNESticle ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

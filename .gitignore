@@ -1,0 +1,31 @@
+# Build outputs
+*.o
+*.a
+*.d
+*.elf
+*.map
+*.lst
+debug_ps2sdk/
+obj/
+
+# Generated bin2c files (IRX → C arrays or icons)
+*_irx.c
+*.inc
+
+# Visual Studio files
+*.ncb
+*.suo
+*.user
+*.sdf
+*.opensdf
+*.db
+*.opendb
+*.aps
+
+# Build directories
+Debug/
+Release/
+
+# OS files
+Thumbs.db
+.DS_Store
