@@ -18,9 +18,7 @@ static void strcpy_sjis(short *dst, const char *src)
 	*dst = 0;
 }
 
-static Uint8 _MemCard_IconData[]={
 #include "memcard_icon.inc"
-};
 
 static Bool _MemCard_bInitialized=FALSE;
 
@@ -123,8 +121,8 @@ int MemCardCreateSave(char *pDir, char *pTitle, Bool bForceWrite)
 	}
 
 	// get pointer to icon data
-	icon_size = sizeof(_MemCard_IconData);
-	icon_buffer = (char *)_MemCard_IconData;
+	icon_size = size_memcard_icon;
+	icon_buffer = (char *)memcard_icon;
 
 	sprintf(Path, "%s/icon.icn", pDir);
 	if (!MemCardWriteFile(Path, (Uint8 *)icon_buffer, icon_size))
