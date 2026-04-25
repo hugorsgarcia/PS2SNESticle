@@ -361,11 +361,14 @@ $(BUILD_DIR)/memcard_icon.inc: ../../Data/icon/memcard_icon.icn
 # Additional targets
 #
 
-.PHONY: clean_all
+.PHONY: clean clean_all
+
+clean:
+	rm -rf $(EE_OBJS_DIR)
+	rm -f $(EE_BIN)
 
 clean_all: clean
 	rm -rf $(BUILD_DIR)
-	rm -rf $(EE_OBJS_DIR)
 	rm -f *_irx.c
 
 #
