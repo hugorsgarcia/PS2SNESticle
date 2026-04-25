@@ -305,6 +305,9 @@ EE_OBJS := $(EE_OBJS:%=$(EE_OBJS_DIR)%)
 
 DATAOBJS = $(BUILD_DIR)/memcard_icon.inc
 
+# Ensure memcard_icon.inc is built before memcard.o
+$(EE_OBJS_DIR)memcard.o: $(BUILD_DIR)/memcard_icon.inc
+
 #
 # Include PS2SDK build system
 #
