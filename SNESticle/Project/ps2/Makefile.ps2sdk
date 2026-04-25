@@ -12,8 +12,8 @@ DVP_AS  ?= $(PS2DEV)/dvp/bin/dvp-as
 #
 
 EE_BIN = SNESticle.elf
+all: $(EE_BIN)
 
-#
 # Build configuration
 #
 
@@ -306,8 +306,6 @@ EE_OBJS := $(EE_OBJS:%=$(EE_OBJS_DIR)%)
 DATAOBJS = $(BUILD_DIR)/memcard_icon.inc
 
 # Ensure memcard_icon.inc is built before memcard.o
-$(EE_OBJS_DIR)memcard.o: $(BUILD_DIR)/memcard_icon.inc
-
 #
 # Include PS2SDK build system
 #
@@ -385,3 +383,5 @@ $(EE_OBJS_DIR)%_irx.c: $(PS2SDK_IRX_DIR)/%.irx
 $(EE_OBJS_DIR)%_irx.o: $(EE_OBJS_DIR)%_irx.c
 	@mkdir -p $(@D)
 	$(EE_CC) $(EE_CFLAGS) $(EE_INCS) -c $< -o $@
+
+$(EE_OBJS_DIR)memcard.o: $(BUILD_DIR)/memcard_icon.inc
