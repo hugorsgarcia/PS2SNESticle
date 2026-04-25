@@ -17,8 +17,8 @@ jobs:
       image: ps2dev/ps2dev:latest
 
     steps:
-      - name: Install Git
-        run: apk add --no-cache git
+      - name: Install build dependencies
+        run: apk add --no-cache git make
 
       - name: Checkout code
         uses: actions/checkout@v4
