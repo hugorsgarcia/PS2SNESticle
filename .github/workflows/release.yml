@@ -6,6 +6,9 @@ on:
       - 'v*'
       - 'V*'
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     name: Build PS2 ELF and Create Release
