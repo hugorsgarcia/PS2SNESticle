@@ -1105,7 +1105,6 @@ static char *_MainLoop_pInstallFiles[] =
 	"ICON.SYS",		"ICON.SYS",
 	"PS2LINK.IRX",	"PS2LINK.IRX",
 	"CDVD.IRX",		"CDVD.IRX",
-	"NETPLAY.IRX",	"NETPLAY.IRX",
 	NULL
 };
 
@@ -1631,10 +1630,7 @@ static void _MainLoopLoadModules(Char **ppSearchPaths)
 	{
 		_MainLoopConfigureNetwork(_MainLoop_NetConfigPaths, "ipconfig.dat");
 
-		if (IOPLoadModule("NETPLAY.IRX", ppSearchPaths, 0, NULL) >= 0)
-		{
-			NetPlayInit((void *)_MainLoopNetCallback);
-		}
+		NetPlayInit((void *)_MainLoopNetCallback);
 
 		// try to load ps2link so we can have host i/o back
 	    IOPLoadModule("PS2LINK.IRX", ppSearchPaths, 0, NULL);
@@ -2458,11 +2454,8 @@ Bool MainLoopProcess()
 {
     NetPlayRPCInputT NetInput;
 
-    PROF_ENTER("Frame");
 
-    PROF_ENTER("NetPlayRPCProcess");
-    NetPlayRPCProcess();
-    PROF_LEAVE("NetPlayRPCProcess");
+    PROF_ENTER("Frame");
 
     PROF_ENTER("InputProcess");
     InputPoll();

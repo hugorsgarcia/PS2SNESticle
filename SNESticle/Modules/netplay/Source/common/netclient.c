@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "types.h"
 #include "netsys.h"
 #include "netprint.h"

@@ -1,12 +1,15 @@
 
-
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "netsys.h"
 #include "netprint.h"
 #include "netsocket.h"
 
+#ifndef INVALID_SOCKET
+#define INVALID_SOCKET (-1)
+#endif
 #define  NETSOCKET_THREAD_PRIORITY (30)
 
 

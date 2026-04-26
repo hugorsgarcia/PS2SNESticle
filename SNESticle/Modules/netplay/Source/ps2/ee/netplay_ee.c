@@ -1,161 +1,155 @@
-
-
 #include <tamtypes.h>
 #include <kernel.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sifrpc.h>
 #include <stdarg.h>
 #include "netplay.h"
-#include "netplay_rpc.h"
 #include "netplay_ee.h"
-
-// ee rpc client
-static unsigned sbuff[64] __attribute__((aligned (64)));
-static unsigned rbuff[64] __attribute__((aligned (64)));
-static SifRpcClientData_t cd0;
-
-// ee rpc server
-static unsigned int buffer[0x80] __attribute__((aligned (64)));
-static SifRpcDataQueue_t qd;
-static SifRpcServerData_t sd0;
+#include "netserver.h"
+#include "netclient.h"
 
 static int netplay_inited = 0;
-static int _netplay_sema;
+static NetSysSemaT _netplay_sema;
+static NetSysSemaT _clientcallback_sema;
 
-static int _NetPlayCallRPC(int rpcnum, int sendsize, int recvsize)
-{
-    int result;
-    
-	WaitSema(_netplay_sema);
+static NetServerT _server;
+static NetClientT _client;
 
-	if(netplay_inited)
-    {
-        result = SifCallRpc(&cd0,rpcnum,0,(void*)(&sbuff[0]),sendsize,(void*)(&sbuff[0]),recvsize,0,0);
-    } else
-    {
-    
-        // return 0 buffer
-        memset(sbuff, 0, recvsize);
-        result = -100;
-    }
-	SignalSema(_netplay_sema);
-    return result;
-}
+typedef void *(*NetPlayCallbackT)(NetPlayCallbackE eCallback, char *data, int size);
+static NetPlayCallbackT _user_callback = NULL;
 
 void NetPlayPuts(char *format, ...)
 {
 	static char buff[4096];
     va_list args;
-    int rv;
 
 	if(!netplay_inited) return;
 
     va_start(args, format);
-    rv = vsnprintf(buff, 4096, format, args);
+    vsnprintf(buff, 4096, format, args);
+    va_end(args);
 
-	memcpy((char*)(&sbuff[0]),buff,252);
-    _NetPlayCallRPC(NETPLAY_RPC_PUTS, 252,252);
+    printf("NetPlay: %s", buff);
 }
 
-void NetPlayRPCProcess()
+static int _ClientCallback(NetClientT *pClient, NetPlayCallbackE eMsg, void *arg)
 {
-    SifRpcServerData_t *pReq;
+    NetSysSemaWait(_clientcallback_sema);
     
-    while ((pReq = SifGetNextRequest(&qd)) != NULL)
+    // For local EE, we can just invoke the callback directly
+    if (_user_callback)
     {
-        SifExecRequest(pReq);
+        _user_callback(eMsg, (char*)arg, arg ? strlen((char*)arg) + 1 : 0);
     }
+    
+    NetSysSemaSignal(_clientcallback_sema);
+
+	switch (eMsg)
+	{
+	case NETPLAY_CALLBACK_LOADGAME:
+		printf("NetPlay Callback: LoadGame %s\n", (char *)arg);
+		break;
+	case NETPLAY_CALLBACK_UNLOADGAME:
+		printf("NetPlay Callback: UnloadGame\n");
+		break;
+	case NETPLAY_CALLBACK_CONNECTED:
+		printf("NetPlay Callback: Connected\n");
+		break;
+	case NETPLAY_CALLBACK_DISCONNECTED:
+		printf("NetPlay Callback: Disconnected\n");
+		break;
+	case NETPLAY_CALLBACK_STARTGAME:
+		printf("NetPlay Callback: StartGame\n");
+		break;
+    default:
+        break;
+	}
+	return 0;
 }
 
 int NetPlayInit(void *pCallback)
 {
-	int i;
-    ee_sema_t compSema;
+    if (netplay_inited) return 0;
 
-    
-    SifSetRpcQueue(&qd, GetThreadId());
-    SifRegisterRpc(&sd0, NETPLAY_RPC_EE, pCallback,(void *) &buffer[0],0,0,&qd);
+    _user_callback = (NetPlayCallbackT)pCallback;
 
-	while(1)
-    {
-		if (SifBindRpc( &cd0, NETPLAY_RPC_IRX, 0) < 0) return -1; // bind error
- 		if (cd0.server != 0) break;
-    	i = 0x10000;
-    	while(i--);
-	}
+    _netplay_sema = NetSysSemaNew(1);
+    _clientcallback_sema = NetSysSemaNew(1);
+    if (!_netplay_sema || !_clientcallback_sema) return -1;
 
-	SifCallRpc(&cd0,NETPLAY_RPC_INIT,0,(void*)(&sbuff[0]),64,(void*)(&sbuff[0]),64,0,0);
+    NetServerNew(&_server);
+    NetClientNew(&_client);
+    NetClientSetCallback(&_client, _ClientCallback);
 
-	FlushCache(0);
-
-
-    compSema.init_count = 1;
-	compSema.max_count = 1;
-	compSema.option = 0;
-	_netplay_sema = CreateSema(&compSema);
-	if (_netplay_sema < 0)
-		return -1;
-
-
-	netplay_inited = 1;
-	return 0;
+    netplay_inited = 1;
+    printf("NetPlay Initialized directly on EE!\n");
+    return 0;
 }
 
 int NetPlayServerStart(int port, int latency)
 {
 	if(!netplay_inited) return -100;
 
-    sbuff[0] = port;
-    sbuff[1] = latency;
-    _NetPlayCallRPC(NETPLAY_RPC_SERVERSTART, 4,4);
-    return sbuff[0];
+    _server.uStartLatency = latency;
+    return NetServerStart(&_server, port);
 }
 
 void NetPlayServerStop()
 {
 	if(!netplay_inited) return;
 
-    _NetPlayCallRPC(NETPLAY_RPC_SERVERSTOP, 0,0);
+    NetServerStop(&_server);
 }
-
-
 
 int NetPlayClientConnect(unsigned ipaddr, int port)
 {
 	if(!netplay_inited) return -100;
 
-    sbuff[0] = ipaddr;
-    sbuff[1] = port;
-    _NetPlayCallRPC(NETPLAY_RPC_CLIENTCONNECT, 8,4);
-    return sbuff[0];
+    return NetClientConnect(&_client, ipaddr, port);
 }
 
 int NetPlayClientDisconnect()
 {
 	if(!netplay_inited) return -100;
 
-    _NetPlayCallRPC(NETPLAY_RPC_CLIENTDISCONNECT, 0,4);
-    return sbuff[0];
+    return NetClientDisconnect(&_client);
 }
 
 int NetPlayServerPingAll()
 {
 	if(!netplay_inited) return -100;
 
-    _NetPlayCallRPC(NETPLAY_RPC_SERVERPINGALL, 0,0);
+    NetServerSendText(&_server, "test");
     return 0;
 }
 
 int NetPlayGetStatus(NetPlayRPCStatusT *pStatus)
 {
+    int iPeer;
     memset(pStatus, 0, sizeof(*pStatus));
 	if(!netplay_inited) return 0;
 
-    _NetPlayCallRPC(NETPLAY_RPC_GETSTATUS, 0, sizeof(NetPlayRPCStatusT));
+    NetSysSemaWait(_netplay_sema);
+
+    pStatus->eClientStatus = _client.eStatus;
+    pStatus->eGameState    = _client.eGameState;
+    pStatus->eServerStatus = _server.eStatus;
     
-    memcpy(pStatus, sbuff, sizeof(NetPlayRPCStatusT));
+    for (iPeer=0; iPeer < 4; iPeer++)
+    {
+        NetPlayRPCPeerStatusT *pPeerStatus = &pStatus->peer[iPeer];
+        
+        pPeerStatus->eStatus =    _client.Peers[iPeer].eStatus;
+        pPeerStatus->eGameState = _client.Peers[iPeer].eGameState;
+        pPeerStatus->ipaddr  = _client.Peers[iPeer].Addr.sin_addr;
+        pPeerStatus->udpport = _client.Peers[iPeer].Addr.sin_port;
+        
+        pPeerStatus->InputSize  = NetQueueGetCount(&_client.Peers[iPeer].InputQueue);
+        pPeerStatus->OutputSize = NetQueueGetCount(&_client.Peers[iPeer].OutputQueue);
+    }
+
+    NetSysSemaSignal(_netplay_sema);
     return 1;
 }
 
@@ -163,41 +157,15 @@ void NetPlayClientSendLoadReq(char *pStr)
 {
 	if(!netplay_inited) return;
     
-    strcpy((char *)&sbuff[0], pStr ? pStr : "");
-
-    _NetPlayCallRPC(NETPLAY_RPC_CLIENTSENDLOADREQ, 128, 0);
+    NetClientSendLoadReq(&_client, pStr);
 }
 
 void NetPlayClientSendLoadAck(NetPlayLoadAckE eLoadAck)
 {
 	if(!netplay_inited) return;
 
-    sbuff[0] = eLoadAck;    
-    _NetPlayCallRPC(NETPLAY_RPC_CLIENTSENDLOADACK, 4, 0);
+    NetClientSendLoadAck(&_client, eLoadAck);
 }
-
-
-#if 0
-void NetPlayClientInput(NetPlayRPCInputT *pInput)
-{
-    pInput->eGameState = NETPLAY_GAMESTATE_PAUSE;
-
-	if(!netplay_inited) return;
-    
-    memcpy(sbuff, pInput, sizeof(*pInput));
-
-	SifCallRpc(&cd0, NETPLAY_RPC_CLIENTINPUT,0,(void*)(&sbuff[0]),sizeof(NetPlayRPCInputT),(void*)(&rbuff[0]),sizeof(NetPlayRPCInputT),0,0);
-
-    memcpy(pInput, rbuff, sizeof(*pInput));
-
-}
-#else
-
-void _Netplay_InputIntr(unsigned *arg)
-{
-	iSignalSema(_netplay_sema);
-}
-
 
 void NetPlayClientInput(NetPlayRPCInputT *pInput)
 {
@@ -206,23 +174,35 @@ void NetPlayClientInput(NetPlayRPCInputT *pInput)
 	if(!netplay_inited)
     {
         pInput->eGameState = NETPLAY_GAMESTATE_IDLE;
-         return;
+        return;
     }
 
-	WaitSema(_netplay_sema);
+	NetSysSemaWait(_netplay_sema);
     
-    // copy to output
-    memcpy(sbuff, pInput, sizeof(*pInput));
+    pInput->uFrame = _client.uFrame + 1;
+    
+    if (_client.eStatus == NETPLAY_STATUS_CONNECTED)
+    {
+        int iPeer;
+    
+		// transmit/recv input data now
+		if (NetClientProcess(&_client, pInput->InputSend, NETPLAY_RPC_NUMPEERS, pInput->InputRecv))
+		{
+            pInput->eGameState = NETPLAY_GAMESTATE_PLAY;
+		} else
+		{
+            pInput->eGameState = NETPLAY_GAMESTATE_PAUSE;
+		}
+        
+        for (iPeer=0; iPeer < 4; iPeer++)
+        {
+            pInput->InputSize[iPeer]  = NetQueueGetCount(&_client.Peers[iPeer].InputQueue);
+            pInput->OutputSize[iPeer] = NetQueueGetCount(&_client.Peers[iPeer].OutputQueue);
+        }
+    } else
+    {
+        pInput->eGameState = NETPLAY_GAMESTATE_IDLE;
+    }
 
-    // get last input
-    memcpy(pInput, rbuff, sizeof(*pInput));
-
-    // trigger next call
-	SifCallRpc(&cd0, NETPLAY_RPC_CLIENTINPUT,1,(void*)(&sbuff[0]),sizeof(NetPlayRPCInputT),(void*)(&rbuff[0]),sizeof(NetPlayRPCInputT),(void *)_Netplay_InputIntr,rbuff);
+    NetSysSemaSignal(_netplay_sema);
 }
-#endif
-
-
-
-
-

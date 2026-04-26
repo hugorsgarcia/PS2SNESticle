@@ -2,18 +2,23 @@
 #ifndef _LLNETSOCKET_H
 #define _LLNETSOCKET_H
 
-
 #include <tamtypes.h>
 #include <stdlib.h>
-#include <sifrpc.h>
-#include <kernel.h>
 #include <stdio.h>
+
+#ifdef _EE
+#include <ps2ip.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#else
+#include <sysmem.h>
+#include <kernel.h>
 #include <sifcmd.h>
 #include <sifrpc.h>
-#include <sysmem.h>
 #include <ps2ip.h>
-
 #define closesocket disconnect
+#endif
 
 #ifndef SOCKET
 #define SOCKET int
@@ -28,5 +33,5 @@ typedef struct
 	char           sin_zero[8];
 } NetSocketAddrT;
 
-
 #endif
+
