@@ -1,7 +1,7 @@
 # SNESticle (PlayStation 2)
 
 <div align="center">
-  <p>A high-performance SNES emulator originally developed circa 2004, modernized and revitalized for contemporary PlayStation 2 homebrew development.</p>
+  <p>A high-performance SNES emulator originally developed Icer Iaddis, ported from Sony's original SDK to the open source PlayStation 2 SDK.</p>
 </div>
 
 ## 📌 Overview
