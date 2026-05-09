@@ -153,12 +153,9 @@ static Int32 _MainLoop_iDisk=0;
 static Bool _MainLoop_bDiskInserted=FALSE;
 static Char _RomName[256];
 
-#if MAINLOOP_MEMCARD
-static Char _SramPath[256] = "mc0:/SNESticle";
+// _SramPath is detected at runtime via _MainLoopDetectSavePath()
+static Char _SramPath[256] = "";
 static Char  _MainLoop_SaveTitle[] = "SNESticle\nSNESticle";
-#else
-static Char _SramPath[256] = "host0:/cygdrive/d/emu/";
-#endif
 
 static CEmuSystem  *_pSystem;
 
@@ -351,7 +348,74 @@ static Uint32 _CalcChecksum(Uint32 *pData, Uint32 nWords)
     return uSum;
 }
 
-                        
+
+// Detect best writable save path at runtime.
+// Probes: mc0 -> mc1 -> mass -> host0 in order.
+static Bool _MainLoopDetectSavePath()
+{
+	int mc_Type, mc_Free, mc_Format;
+	int cmd, result;
+
+	// Try mc0:
+	mcGetInfo(0, 0, &mc_Type, &mc_Free, &mc_Format);
+	mcSync(0, &cmd, &result);
+	if (result == 0 || result == -1)
+	{
+		// mc0 present - call mcGetInfo again after -1 (new card)
+		if (result == -1)
+		{
+			mcGetInfo(0, 0, &mc_Type, &mc_Free, &mc_Format);
+			mcSync(0, &cmd, &result);
+		}
+		strcpy(_SramPath, "mc0:/SNESticle");
+		printf("SRAM: Using %s\n", _SramPath);
+		return TRUE;
+	}
+
+	// Try mc1:
+	mcGetInfo(1, 0, &mc_Type, &mc_Free, &mc_Format);
+	mcSync(0, &cmd, &result);
+	if (result == 0 || result == -1)
+	{
+		if (result == -1)
+		{
+			mcGetInfo(1, 0, &mc_Type, &mc_Free, &mc_Format);
+			mcSync(0, &cmd, &result);
+		}
+		strcpy(_SramPath, "mc1:/SNESticle");
+		printf("SRAM: Using %s\n", _SramPath);
+		return TRUE;
+	}
+
+	// Try mass: (USB)
+	{
+		int fd = open("mass:/", O_RDONLY);
+		if (fd >= 0)
+		{
+			close(fd);
+			mkdir("mass:/SNESticle", 0755);
+			strcpy(_SramPath, "mass:/SNESticle");
+			printf("SRAM: Using %s\n", _SramPath);
+			return TRUE;
+		}
+	}
+
+	// Try host0: (ps2link/ps2client)
+	{
+		int fd = open("host0:", O_RDONLY);
+		if (fd >= 0)
+		{
+			close(fd);
+			strcpy(_SramPath, "host0:");
+			printf("SRAM: Using %s\n", _SramPath);
+			return TRUE;
+		}
+	}
+
+	printf("SRAM: WARNING - No writable save path found!\n");
+	return FALSE;
+}
+
 static Bool _MainLoopHasSRAM()
 {
 	return  _pSystem ? (_pSystem->GetSRAMBytes() > 0) : FALSE;
@@ -375,13 +439,11 @@ static Bool _MainLoopSaveSRAM(Bool bSync)
         sprintf(Path, "%s/%s.%s", _SramPath, SaveName, _pSystem->GetString(EMUSYS_STRING_SRAMEXT) );
 
 		MCSave_WriteSync(TRUE, NULL);
-		MCSave_Write((char *)Path, (char *)pSRAM, nSramBytes);
+		int writeResult = MCSave_Write((char *)Path, (char *)pSRAM, nSramBytes);
 
 		if (bSync)
 		{
-			int result;
-			MCSave_WriteSync(TRUE, &result);
-			return result ? TRUE : FALSE;
+			return writeResult ? TRUE : FALSE;
 		}
 		return TRUE;
 	}
@@ -1565,9 +1627,6 @@ static void _MainLoopLoadModules(Char **ppSearchPaths)
 	    if (IOPLoadModule("rom0:XMCSERV", NULL, 0, NULL) >= 0)
 		{
 			MemCardInit();
-			#if MAINLOOP_MEMCARD
-			MemCardCreateSave(_SramPath, _MainLoop_SaveTitle, TRUE);
-			#endif
 		}
 	} else
 	{
@@ -1583,9 +1642,6 @@ static void _MainLoopLoadModules(Char **ppSearchPaths)
 	    if (IOPLoadModule("rom0:MCSERV", NULL, 0, NULL) >= 0)
 		{
 			MemCardInit();
-			#if MAINLOOP_MEMCARD
-			MemCardCreateSave(_SramPath, _MainLoop_SaveTitle, TRUE);
-			#endif
 		}
 	}
 
@@ -1618,10 +1674,19 @@ static void _MainLoopLoadModules(Char **ppSearchPaths)
 		audsrv_set_volume(MAX_VOLUME);
 	}
 
-	// TODO: MCSAVE.IRX is compiled with old ps2lib SDK.
-	// Needs recompilation with PS2SDK or alternative approach.
+	// Initialize MCSave (EE-side libmc wrapper)
 	printf("MCSave_Init()\n");
 	MCSave_Init(MAINLOOP_MAXSRAMSIZE);
+
+	// Detect best writable save path at runtime
+	if (_MainLoopDetectSavePath())
+	{
+		// Create save directory on memory card if applicable
+		if (_SramPath[0] == 'm' && _SramPath[1] == 'c')
+		{
+			MemCardCreateSave(_SramPath, _MainLoop_SaveTitle, TRUE);
+		}
+	}
 
 	// Network (optional, loaded from external files if available)
 	bLoadedNetwork = _MainLoopInitNetwork(ppSearchPaths);
@@ -2632,36 +2697,33 @@ void _MenuEnable(Bool bEnable)
 		// if menu is enabled, then attempt to save sram immediately
 		if (bEnable)
 		{
-            #if 1 
 			if (_MainLoopHasSRAM() && _MainLoop_SRAMUpdated)
 			{
-			   	MainLoopModalPrintf(10, "Saving SRAM...");
+				MainLoopModalPrintf(10, "Saving SRAM...");
 
-			    if (_MainLoopHasSRAM())
-			    {
-					#if MAINLOOP_MEMCARD
-					MCSave_WriteSync(1, NULL);
-
-					if (MemCardCheckNewCard())
+				if (_MainLoopHasSRAM())
+				{
+					// Check for memcard directory if using memory card path
+					if (_SramPath[0] == 'm' && _SramPath[1] == 'c')
 					{
-						printf("New memcard detected\n");
-						if (MemCardCreateSave(_SramPath, _MainLoop_SaveTitle, FALSE))
+						MCSave_WriteSync(1, NULL);
+
+						if (MemCardCheckNewCard())
 						{
+							printf("New memcard detected\n");
 							MemCardCreateSave(_SramPath, _MainLoop_SaveTitle, FALSE);
 						}
 					}
-					#endif
 
-				    if (_MainLoopSaveSRAM(TRUE))
-				    {
-					    MainLoopModalPrintf(60, "SRAM saved.\n");
-				    } else
-				    {
-					    MainLoopModalPrintf(60 * 1 + 30, "Error Saving SRAM!\n");
-				    }
-			    }
+					if (_MainLoopSaveSRAM(TRUE))
+					{
+						MainLoopModalPrintf(60, "SRAM saved.\n");
+					} else
+					{
+						MainLoopModalPrintf(60 * 1 + 30, "Error Saving SRAM!\n");
+					}
+				}
 			}
-            #endif
 		}
 
 		_bMenu = bEnable;
