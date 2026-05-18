@@ -6,6 +6,13 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+
+// IOP file flags for mcOpen (different from newlib O_* flags!)
+// newlib O_RDONLY=0, O_WRONLY=1, but IOP expects:
+#define MC_O_RDONLY  0x0001
+#define MC_O_WRONLY  0x0002
+#define MC_O_CREAT   0x0200
+#define MC_O_TRUNC   0x0400
 #include "types.h"
 
 #include "memcard.h"
@@ -182,7 +189,7 @@ Bool MemCardWriteFile(char *pPath, Uint8 *pData, Uint32 nBytes)
 
 	if (MemCardIsMCPath(pPath, &port, &slot, &name))
 	{
-		mcOpen(port, slot, name, O_WRONLY | O_CREAT | O_TRUNC);
+		mcOpen(port, slot, name, MC_O_WRONLY | MC_O_CREAT | MC_O_TRUNC);
 		mcSync(0, &cmd, &result);
 		fd = result;
 
@@ -225,7 +232,7 @@ Bool MemCardReadFile(char *pPath, Uint8 *pData, Uint32 nBytes)
 
 	if (MemCardIsMCPath(pPath, &port, &slot, &name))
 	{
-		mcOpen(port, slot, name, O_RDONLY);
+		mcOpen(port, slot, name, MC_O_RDONLY);
 		mcSync(0, &cmd, &result);
 		fd = result;
 

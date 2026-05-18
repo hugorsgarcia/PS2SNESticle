@@ -35,13 +35,14 @@ The original SNESticle was written by Icer Addis using Sony's licensed developme
 - SNES emulation (CPU, PPU, SPC700)
 - Controller input (DualShock 2)
 - **Audio** ✅ (April 24, 2026) — SPC700 DSP audio output via `audsrv.irx` (PS2SDK). 12 bugs tracked and resolved across SJPCM2, audsrv, and GCC 15.2 optimization. Key fixes: (1) fixed per-frame generation bypassing broken `audsrv_queued()`, (2) `snspcmix.cpp` compiled with `-O1` to work around GCC 15.2 `-O2` corrupting inline MIPS assembly.
+- **Memory card saves** ✅ (April 26, 2026) — Migrated from custom `MCSAVE.IRX` to native PS2SDK `libmc` + `fileio` calls.
+- **Network** ✅ (April 26, 2026) — Migrated from custom `NETPLAY.IRX` IOP module to EE-native networking using PS2SDK `ps2ip` (lwIP). Server/client logic runs directly on the Emotion Engine via BSD sockets.
+
+> **Milestone:** All 4 custom IOP modules (`SJPCM`, `MCSAVE`, `CDVD`, `NETPLAY`) have been fully replaced by PS2SDK equivalents. The build is now fully standalone and open-source.
 
 ### What Doesn't Work Yet
 
-
-- **Memory card saves**: MCSAVE.IRX (custom IOP module) has ps2lib incompatibility
 - **Graphics glitches**: Some PPU rendering bugs present (pre-existing or caused by type width changes)
-- **Network**: PS2IPS/PS2IP/PS2SMAP modules are not embedded and not available on disc
 
 ---
 

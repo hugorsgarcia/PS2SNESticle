@@ -52,6 +52,7 @@ VPATH += $(NESSOURCE)/common/ncpu
 VPATH += $(NESSOURCE)/common
 VPATH += $(MODULE_BASE)/mcsave/ee
 
+VPATH += $(MODULE_BASE)/netplay/Source/common
 VPATH += $(MODULE_BASE)/netplay/Source/ps2/common
 VPATH += $(MODULE_BASE)/netplay/Source/ps2/ee
 VPATH += $(MODULE_BASE)/libcdvd/ee
@@ -213,6 +214,13 @@ EE_OBJS += titleman.o
 
 # Network
 EE_OBJS += netplay_ee.o
+EE_OBJS += netsys_ee.o
+EE_OBJS += netserver.o
+EE_OBJS += netclient.o
+EE_OBJS += netsocket.o
+EE_OBJS += netpacket.o
+EE_OBJS += netqueue.o
+EE_OBJS += netrelay.o
 
 # UI / font / texture
 EE_OBJS += font.o

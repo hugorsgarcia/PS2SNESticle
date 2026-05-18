@@ -20,32 +20,26 @@ extern SnesChrLookupT _SnesPPU_PlaneLookup[2];
 static void _Color8to32(Uint32 *pDest32, Uint8 *pSrc8, Uint32 *pPal32, Int32 nPixels, SNMaskT *pColorMask, SNMaskT *pHalfColorMask)
 {
 	Uint32 pLookup = (Uint32)pPal32;
-	Uint128 uLookup;
 	SnesChrLookupT *pPlaneLookup = &_SnesPPU_PlaneLookup[1];
 
-	__asm__  __volatile__ (
-		"srl       %1,%1,16     \n"
-		"pcpyh     %0,%1        \n"
-		"pcpyld    %0,%0,%0     \n"
-		: "=r" (uLookup)
-		: "r" (pLookup)
-		);    
-
 	__asm__ __volatile__ (
+		"srl        $17,%6,16       \n"
+		"pcpyh      $17,$17         \n"
+		"pcpyld     $17,$17,$17     \n"
 		".set noreorder \n"
 		".align 3           \n"
 		"_Color8To32_Loop:           \n"
-		"lbu		 $15,0x00(%5)    \n"     // $15 = load color mask 
+		"lbu		 $15,0x00(%4)    \n"     // $15 = load color mask 
+		"addiu		 %4,%4,1		 \n"
+		"lbu		 $16,0x00(%5)    \n"     // $16 = load halfcolor mask 
 		"addiu		 %5,%5,1		 \n"
-		"lbu		 $16,0x00(%6)    \n"     // $16 = load halfcolor mask 
-		"addiu		 %6,%6,1		 \n"
 		"ld          $8,0x00(%0)     \n"    // load 8 pixels
 		"addiu       %0,%0,8         \n"   
 
 		"sll		$15,$15,3		 \n"    // color mask *8
 		"sll		$16,$16,3		 \n"    // halfcolor mask *8
-		"addu		$15,$15,%4       \n"     
-		"addu		$16,$16,%4       \n"     
+		"addu		$15,$15,%3       \n"     
+		"addu		$16,$16,%3       \n"     
 		"ld			$15,0x00($15)    \n"    // load color mask bits
 		"ld			$16,0x00($16)    \n"    // load halfcolor mask bits
 		"dsll		$15,$15,1        \n"    // shift color mask << 1
@@ -53,8 +47,8 @@ static void _Color8to32(Uint32 *pDest32, Uint8 *pSrc8, Uint32 *pPal32, Int32 nPi
 
 		"pextlb      $8,$15,$8        \n"    // 0maa0mbb0mcc0mdd0mee0mff0mgg0mhh
 		"psllh       $8,$8,2         \n"    // pixels << 2
-		"pextlh      $9,%3,$8        \n"    // $9 = 700000ee 700000ff 700000gg 700000hh
-		"pextuh     $10,%3,$8        \n"    // $10= 700000aa 700000bb 700000cc 700000dd
+		"pextlh      $9,$17,$8        \n"    // $9 = 700000ee 700000ff 700000gg 700000hh
+		"pextuh     $10,$17,$8        \n"    // $10= 700000aa 700000bb 700000cc 700000dd
 		"lw         $11,0x00($9)     \n"    // 
 		"dsrl32      $9,$9,0         \n"    // 
 		"lw         $12,0x00($9)     \n"    // 
@@ -86,8 +80,8 @@ static void _Color8to32(Uint32 *pDest32, Uint8 *pSrc8, Uint32 *pPal32, Int32 nPi
 		".set reorder \n"
 
 		: "+r" (pSrc8), "+r" (pDest32), "+r" (nPixels)
-		: "r" (uLookup), "r" (pPlaneLookup), "r" (pColorMask), "r" (pHalfColorMask)
-		: "$8", "$9", "$10", "$11", "$12", "$13", "$14", "$15", "$16"
+		: "r" (pPlaneLookup), "r" (pColorMask), "r" (pHalfColorMask), "r" (pLookup)
+		: "$8", "$9", "$10", "$11", "$12", "$13", "$14", "$15", "$16", "$17", "memory"
 		);    
 }
 
@@ -97,7 +91,7 @@ static void _ColorAdd(Uint32 *pDest, Uint32 *pMain, Uint32 *pSub, Uint32 nPixels
 	while (nPixels > 0)
 	{
 
-    	__asm__ (
+    	__asm__ __volatile__ (
     	    "lq          $8,0x00(%1)     \n"
     	    "lq          $9,0x10(%1)     \n"
     	    "lq         $10,0x20(%1)     \n"
@@ -118,7 +112,7 @@ static void _ColorAdd(Uint32 *pDest, Uint32 *pMain, Uint32 *pSub, Uint32 nPixels
 
     	    : 
     	    : "r" (pDest), "r" (pMain), "r" (pSub)
-            : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "$15"
+            : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "$15", "memory"
     	 );    
 
 		pMain  +=16;
@@ -134,7 +128,7 @@ static void _ColorSub(Uint32 *pDest, Uint32 *pMain, Uint32 *pSub, Uint32 nPixels
 	while (nPixels > 0)
 	{
 
-    	__asm__ (
+    	__asm__ __volatile__ (
     	    "lq          $8,0x00(%1)     \n"
     	    "lq          $9,0x10(%1)     \n"
     	    "lq         $10,0x20(%1)     \n"
@@ -155,7 +149,7 @@ static void _ColorSub(Uint32 *pDest, Uint32 *pMain, Uint32 *pSub, Uint32 nPixels
 
     	    : 
     	    : "r" (pDest), "r" (pMain), "r" (pSub)
-            : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "$15"
+            : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "$15", "memory"
     	 );    
 
 		pMain  +=16;
