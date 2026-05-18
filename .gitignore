@@ -29,3 +29,15 @@ Release/
 # OS files
 Thumbs.db
 .DS_Store
+
+# GSD (Get Shit Done) planning files — local only, not for version control
+.planning/
+.github/.gsd-profile
+.github/agents/
+.github/copilot-instructions.md
+.github/get-shit-done/
+.github/gsd-file-manifest.json
+.github/gsd-install-state.json
+.github/skills/
+BUGS.md
+
