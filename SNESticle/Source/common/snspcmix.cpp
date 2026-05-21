@@ -1313,6 +1313,7 @@ void SNSpcDspMixFull::Mix(CMixBuffer *pMixBuf)
 #endif
 
 #if CODE_PLATFORM == CODE_PS2
+	static_assert(sizeof(SNSpcDspDataT) <= 16384, "SNSpcDspDataT exceeds its 16KB scratchpad partition");
 	if (sizeof(SNSpcDspDataT) > 16384)
 	{
 		printf("%d\n",sizeof(SNSpcDspDataT));
