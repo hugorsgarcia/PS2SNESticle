@@ -351,6 +351,14 @@ void SnesPPURender::BeginRender(CRenderSurface *pTarget)
     m_pRenderInfo = &_RenderInfo;
 	#endif
 
+	if (m_pRenderInfo)
+	{
+		m_pRenderInfo->uBGVramAddr[0] = 0xFFFFFFFF;
+		m_pRenderInfo->uBGVramAddr[1] = 0xFFFFFFFF;
+		m_pRenderInfo->uBGVramAddr[2] = 0xFFFFFFFF;
+		m_pRenderInfo->uBGVramAddr[3] = 0xFFFFFFFF;
+	}
+
 	m_pTarget = pTarget;
 	if (pTarget)
 	{
@@ -390,6 +398,13 @@ void SnesPPURender::EndRender()
 
 void SnesPPURender::UpdateVRAM(Uint32 uVramAddr)
 {
+	if (m_pRenderInfo)
+	{
+		m_pRenderInfo->uBGVramAddr[0] = 0xFFFFFFFF;
+		m_pRenderInfo->uBGVramAddr[1] = 0xFFFFFFFF;
+		m_pRenderInfo->uBGVramAddr[2] = 0xFFFFFFFF;
+		m_pRenderInfo->uBGVramAddr[3] = 0xFFFFFFFF;
+	}
 }
 
 

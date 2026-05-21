@@ -381,8 +381,8 @@ Uint32 SnesPPURender::FetchBG(SnesBGInfoT *pBGInfo, struct SnesRenderTileT *pTil
 	// determine if fine scrollX has changed
 	if (((uOldVramAddr>>16)&7)!=(uScrollX&7))
 	{
-		// force palette fetch
-		uResult |= SNPPU_BGFLAGS_FETCHPAL;
+		// force palette and chr fetch (needed for correct mask shifting)
+		uResult |= SNPPU_BGFLAGS_FETCHPAL | SNPPU_BGFLAGS_FETCHCHR;
 	}
 
 	// determine if fine scrollY has changed
