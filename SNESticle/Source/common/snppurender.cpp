@@ -229,14 +229,14 @@ static Bool bPrint = TRUE;
 			m_UpdateFlags &= ~SNESPPURENDER_UPDATE_OBJ;
 		}
 
-		if (m_UpdateFlags & SNESPPURENDER_UPDATE_BGSCR)
+		if (m_UpdateFlags & (SNESPPURENDER_UPDATE_BGSCR | SNESPPURENDER_UPDATE_BGCHR))
 		{
             pRenderInfo->uBGVramAddr[0] = 0xFFFFFFFF;
             pRenderInfo->uBGVramAddr[1] = 0xFFFFFFFF; 
             pRenderInfo->uBGVramAddr[2] = 0xFFFFFFFF; 
             pRenderInfo->uBGVramAddr[3] = 0xFFFFFFFF; 
 
-			m_UpdateFlags &= ~SNESPPURENDER_UPDATE_BGSCR;
+			m_UpdateFlags &= ~(SNESPPURENDER_UPDATE_BGSCR | SNESPPURENDER_UPDATE_BGCHR);
 		}
 
 	    if (m_UpdateFlags & SNESPPURENDER_UPDATE_WINDOW)
