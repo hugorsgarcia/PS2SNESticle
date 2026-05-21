@@ -32,6 +32,8 @@ Thumbs.db
 
 # GSD (Get Shit Done) planning files — local only, not for version control
 .planning/
+.agent/
+.claude/
 .github/.gsd-profile
 .github/agents/
 .github/copilot-instructions.md
