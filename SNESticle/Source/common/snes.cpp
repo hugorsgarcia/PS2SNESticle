@@ -840,7 +840,7 @@ void SnesSystem::ExecuteCPU(Int32 nCycles)
                 PROF_ENTER("ProcessMDMA");
                 // so, execute DMA for remainder of CPU time
                 // this function automatically subtracts from the CPU cycle count as it transfers each byte
-#if 1
+#if 0
                 m_DMAC.ProcessMDMA();
 #else
                 {

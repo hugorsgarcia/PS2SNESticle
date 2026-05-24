@@ -61,7 +61,8 @@ Uint8 _tsw = 0x3F;
 
 
 #if CODE_PLATFORM == CODE_PS2
-#define PS2_RENDERINFOADDR  (PS2MEM_SCRATCHPAD +  0*1024)
+#define PS2_RENDERINFOADDR  (PS2MEM_SCRATCHPAD + 10752)
+static_assert(10752 + sizeof(SnesRender8pInfoT) <= 16384, "SnesRender8pInfoT partition exceeds the 16KB scratchpad limit");
 #endif
 
 //

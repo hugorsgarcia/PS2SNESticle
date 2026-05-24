@@ -115,8 +115,8 @@ EE_OPTFLAGS  = -O2
 EE_WARNFLAGS = -Wall -Wno-error
 
 # Project-specific C flags (appended to PS2SDK defaults)
-EE_CFLAGS  += $(EE_DEFINES) -pipe -fomit-frame-pointer -fstrict-aliasing -fno-common -mhard-float
-EE_CXXFLAGS += $(EE_DEFINES) -pipe -fomit-frame-pointer -fstrict-aliasing -fno-common -mhard-float -fno-exceptions -fno-rtti
+EE_CFLAGS  += $(EE_DEFINES) -pipe -fomit-frame-pointer -fno-strict-aliasing -fno-common -mhard-float
+EE_CXXFLAGS += $(EE_DEFINES) -pipe -fomit-frame-pointer -fno-strict-aliasing -fno-common -mhard-float -fno-exceptions -fno-rtti
 
 # Assembler flags for .S files (preprocessed assembly)
 EE_ASFLAGS += -march=r5900 -mabi=n32 -EL
