@@ -326,12 +326,17 @@ void SNPPUBlendGS::End()
     GPFifoResume();
 
     GSGifTagOpenAD();
+    // Invalidate GS texture cache so MainLoopRender reads fresh
+    // data from VRAM 0x2400 instead of potentially stale cache lines.
+    // This is a single register write — negligible performance cost.
+    GSGifRegAD(GS_REG_TEXFLUSH, 0);
     // reset frame register
 	GSGifRegAD(GS_REG_FRAME_1, GS_GetFrameReg());
 	GSGifRegAD(GS_REG_XYOFFSET_1, GS_GetOffsetReg());
     GSGifTagCloseAD();
 
     m_pTarget = NULL;
+    m_pDmaBlendInfo = NULL;
 }
 
 

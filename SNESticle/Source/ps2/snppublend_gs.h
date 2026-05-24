@@ -7,7 +7,7 @@
 
 struct SNPPUDmaListT
 {
-    Uint128     Data[128] _ALIGN(16);
+    Uint128     Data[128] _ALIGN(64);
 
     Uint64      *pFixedColor;
     Uint64      *pAddSub;
@@ -21,7 +21,8 @@ struct SNPPUDmaListT
     Uint32      uTempAddr;
 
 	Uint32		uOutAddr;
-};
+	Uint32		uPadding[6]; // Pad structure to multiple of 64 bytes (2112 bytes total)
+} _ALIGN(64);
 
 struct SNPPUBlendColorCalibT
 {
@@ -34,8 +35,9 @@ struct SNPPUBlendColorCalibT
 
 class SNPPUBlendGS : public ISNPPUBlend
 {
-    SNPPUDmaListT m_DmaList _ALIGN(16);
-    SNPPUBlendInfoT *m_pDmaBlendInfo;
+    SNPPUDmaListT m_DmaList _ALIGN(64);
+    SNPPUBlendInfoT *m_pDmaBlendInfo _ALIGN(64);
+
 
 public:
     SNPPUBlendGS(Uint32 uVramAddr, Uint32 uOutAddr);

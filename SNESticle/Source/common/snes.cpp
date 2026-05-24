@@ -10,6 +10,12 @@
 #include "sntiming.h"
 #include "sndebug.h"
 
+#if CODE_PLATFORM == CODE_PS2
+extern "C" {
+#include "ps2dma.h"
+}
+#endif
+
 
 #define SNES_SYNCPPUEVERYLINE (CODE_DEBUG && 0) 
 
@@ -1073,6 +1079,42 @@ void SnesSystem::ExecuteFrame(Emu::SysInputT  *pInput, CRenderSurface *pTarget, 
 	SyncPPU();
 	SyncSPC();
 
+	// === BUG-001 DIAGNOSTIC: Track VRAM and PPU register changes across frames ===
+	#if CODE_DEBUG
+	{
+		// Ponto 1: VRAM CRC — detect when SNES VRAM contents change
+		static Uint32 s_lastVramCRC = 0;
+		Uint32 crc = 0;
+		const Uint16 *vram = m_PPU.GetVramPtr(0);
+		for (int i = 0; i < 0x8000; i++)
+			crc = (crc * 31) ^ vram[i];
+		if (crc != s_lastVramCRC) {
+			printf("BUG001: VRAM CRC %08X->%08X frame=%d\n", s_lastVramCRC, crc, m_uFrame);
+			s_lastVramCRC = crc;
+		}
+
+		// Ponto 2: PPU register snapshot — detect BG config changes
+		const SnesPPURegsT *pDiagRegs = m_PPU.GetRegs();
+		static Uint8 s_lastBGMode = 0xFF;
+		static Uint8 s_lastBG1SC = 0xFF;
+		static Uint8 s_lastBG12NBA = 0xFF;
+		if (pDiagRegs->bgmode != s_lastBGMode ||
+		    pDiagRegs->bg1sc != s_lastBG1SC ||
+		    pDiagRegs->bg12nba != s_lastBG12NBA)
+		{
+			printf("BUG001: PPU bgmode=%02X->%02X bg1sc=%02X->%02X bg12nba=%02X->%02X "
+			       "tm=%02X inidisp=%02X frame=%d\n",
+			       s_lastBGMode, pDiagRegs->bgmode,
+			       s_lastBG1SC, pDiagRegs->bg1sc,
+			       s_lastBG12NBA, pDiagRegs->bg12nba,
+			       pDiagRegs->tm, pDiagRegs->inidisp, m_uFrame);
+			s_lastBGMode = pDiagRegs->bgmode;
+			s_lastBG1SC = pDiagRegs->bg1sc;
+			s_lastBG12NBA = pDiagRegs->bg12nba;
+		}
+	}
+	#endif
+
 	// update spc timers
 	SNSpcTimerSync(&m_SpcIO.m_Regs.spc_timer[0], SNSPCGetCounter(&m_Spc, SNSPC_COUNTER_TOTAL));
 	SNSpcTimerSync(&m_SpcIO.m_Regs.spc_timer[1], SNSPCGetCounter(&m_Spc, SNSPC_COUNTER_TOTAL));
@@ -1080,6 +1122,13 @@ void SnesSystem::ExecuteFrame(Emu::SysInputT  *pInput, CRenderSurface *pTarget, 
 
 	// mix non-deterministic mixer
 	PROF_ENTER("SNSpcDspUpdate");
+	#if CODE_PLATFORM == CODE_PS2
+	// Ensure GIF DMA is fully complete before audio mixer
+	// overwrites the shared scratchpad memory (0x70000000).
+	// GPFifoResume() in SNPPUBlendGS::End() may have started
+	// a new DMA chain that could still be in-flight.
+	DmaSyncGIF();
+	#endif
 	m_SpcDspMixer.Mix(pSound);
 	PROF_LEAVE("SNSpcDspUpdate");
 
